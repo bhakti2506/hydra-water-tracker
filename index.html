@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Hydra — Water Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0d1b2a;
+    --blue: #4fc3f7;
+    --blue-dim: #1e5f7a;
+    --blue-pale: rgba(79,195,247,0.12);
+    --text: #f0f4f8;
+    --text-muted: #7a9ab5;
+    --card: rgba(255,255,255,0.05);
+    --card-border: rgba(79,195,247,0.15);
+    --green: #4caf82;
+    --yellow: #f5c842;
+    --red: #e05c5c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--navy); color: var(--text); max-width: 390px; margin: 0 auto; position: relative; overflow-x: hidden; }
+  #app { display: flex; flex-direction: column; min-height: 100vh; background: var(--navy); }
+  .screen { display: none; flex: 1; padding: 0 0 80px; overflow-y: auto; }
+  .screen.active { display: block; }
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(13,27,42,0.96); border-top: 1px solid var(--card-border); display: flex; z-index: 100; backdrop-filter: blur(10px); }
+  .nav-btn { flex: 1; padding: 12px 0 10px; background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: color 0.2s; }
+  .nav-btn.active { color: var(--blue); }
+  .nav-icon { font-size: 20px; }
+  .header { padding: 48px 20px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .header-sub { font-size: 13px; color: var(--text-muted); }
+  .settings-btn { background: var(--card); border: 1px solid var(--card-border); border-radius: 50%; width: 36px; height: 36px; color: var(--text-muted); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .ring-wrap { display: flex; justify-content: center; padding: 16px 0 8px; position: relative; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+  .ring-ml { font-size: 26px; font-weight: 700; color: var(--blue); }
+  .ring-target { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .ring-pct { font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 500; }
+  .alert-bar { margin: 8px 16px; border-radius: 12px; padding: 10px 14px; font-size: 13px; line-height: 1.4; font-weight: 500; transition: all 0.3s; }
+  .alert-bar.green { background: rgba(76,175,130,0.15); border: 1px solid rgba(76,175,130,0.3); color: #4caf82; }
+  .alert-bar.yellow { background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.3); color: #f5c842; }
+  .alert-bar.red { background: rgba(224,92,92,0.12); border: 1px solid rgba(224,92,92,0.3); color: #e05c5c; }
+  .pace-line { text-align: center; font-size: 12px; color: var(--text-muted); padding: 0 20px 12px; }
+  .log-section { padding: 12px 16px 0; }
+  .log-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+  .icon-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .drink-btn { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 12px 16px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s; min-width: 72px; position: relative; overflow: hidden; }
+  .drink-btn:active { transform: scale(0.93); background: rgba(79,195,247,0.15); }
+  .drink-btn .dicon { font-size: 26px; }
+  .drink-btn .dlabel { font-size: 11px; color: var(--text-muted); }
+  .drink-btn .dml { font-size: 13px; font-weight: 600; color: var(--blue); }
+  .ripple { position: absolute; border-radius: 50%; background: rgba(79,195,247,0.35); transform: scale(0); animation: ripple 0.5s linear; pointer-events: none; }
+  @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+  .float-text { position: fixed; font-size: 14px; font-weight: 700; color: var(--blue); pointer-events: none; animation: floatup 0.8s ease-out forwards; z-index: 999; }
+  @keyframes floatup { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-50px); } }
+  .actions-row { display: flex; gap: 10px; margin: 12px 0 0; align-items: center; flex-wrap: wrap; }
+  .undo-btn { background: none; border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-muted); font-size: 12px; padding: 6px 12px; cursor: pointer; }
+  .custom-row { display: flex; gap: 8px; align-items: center; }
+  .custom-input { background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text); font-size: 13px; padding: 6px 10px; width: 100px; }
+  .custom-add { background: var(--blue); border: none; border-radius: 8px; color: var(--navy); font-size: 12px; font-weight: 600; padding: 6px 12px; cursor: pointer; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin: 20px 16px 10px; }
+  .log-list { padding: 0 16px; display: flex; flex-direction: column; gap: 6px; }
+  .log-item { background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+  .log-time { font-size: 12px; color: var(--text-muted); }
+  .log-amt { font-size: 14px; font-weight: 600; color: var(--blue); }
+  .log-type { font-size: 11px; color: var(--text-muted); }
+  .empty-log { text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; }
+  .sub-tabs { display: flex; margin: 16px 16px 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 4px; gap: 4px; }
+  .sub-tab { flex: 1; padding: 8px; text-align: center; font-size: 13px; border-radius: 9px; cursor: pointer; border: none; background: none; color: var(--text-muted); transition: all 0.2s; }
+  .sub-tab.active { background: var(--blue); color: var(--navy); font-weight: 600; }
+  .chart-card { margin: 12px 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px; }
+  .chart-title { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 16px 0; }
+  .stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px; }
+  .stat-val { font-size: 20px; font-weight: 700; color: var(--blue); }
+  .stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .suggest-card { margin: 12px 16px; background: rgba(79,195,247,0.07); border: 1px solid rgba(79,195,247,0.2); border-radius: 14px; padding: 14px; font-size: 13px; color: var(--text); line-height: 1.5; }
+  .suggest-icon { font-size: 18px; margin-bottom: 6px; }
+  .settings-form { padding: 0 16px 20px; }
+  .field { margin-bottom: 16px; }
+  .field label { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+  .field input, .field select { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid var(--card-border); border-radius: 10px; color: var(--text); font-size: 15px; padding: 12px 14px; outline: none; font-family: inherit; }
+  .field input:focus, .field select:focus { border-color: var(--blue); }
+  .field select option { background: #0d1b2a; }
+  .save-btn { width: 100%; background: var(--blue); border: none; border-radius: 12px; color: var(--navy); font-size: 16px; font-weight: 700; padding: 15px; cursor: pointer; margin-top: 8px; font-family: inherit; }
+  .save-btn:active { opacity: 0.85; }
+  #onboarding { position: fixed; inset: 0; background: var(--navy); z-index: 200; display: flex; flex-direction: column; justify-content: center; padding: 32px 24px; max-width: 390px; margin: 0 auto; overflow-y: auto; }
+  #onboarding h2 { font-size: 28px; font-weight: 700; color: var(--blue); margin-bottom: 6px; }
+  #onboarding p { font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
+  .heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .heatmap-cell { aspect-ratio: 1; border-radius: 3px; }
+  .bar-wrap { display: flex; flex-direction: column; gap: 5px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; }
+  .bar-lbl { font-size: 11px; color: var(--text-muted); width: 36px; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; background: rgba(255,255,255,0.06); border-radius: 4px; height: 20px; position: relative; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+  .bar-val { font-size: 10px; font-weight: 600; color: var(--navy); }
+  .bar-ideal { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.3); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .danger-btn { width: 100%; margin-top: 10px; background: none; border: 1px solid rgba(224,92,92,0.3); border-radius: 12px; color: #e05c5c; font-size: 13px; padding: 12px; cursor: pointer; font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="onboarding">
+    <div style="font-size:40px;margin-bottom:16px;">💧</div>
+    <h2>Welcome to Hydra</h2>
+    <p>Set up your daily hydration goal to get started.</p>
+    <div class="field"><label>Daily water target (litres)</label><input type="number" id="ob-target" placeholder="e.g. 2.5" step="0.5" min="0.5" max="10" value="2.5"></div>
+    <div class="field"><label>Glass size</label><select id="ob-glass"><option value="150">150 ml</option><option value="200">200 ml</option><option value="250" selected>250 ml</option><option value="300">300 ml</option></select></div>
+    <div class="field"><label>Bottle size</label><select id="ob-bottle"><option value="500">500 ml</option><option value="750">750 ml</option><option value="1000" selected>1 litre</option><option value="1500">1.5 litres</option></select></div>
+    <div class="two-col">
+      <div class="field"><label>Wake time</label><input type="time" id="ob-wake" value="07:00"></div>
+      <div class="field"><label>Sleep time</label><input type="time" id="ob-sleep" value="00:00"></div>
+    </div>
+    <button class="save-btn" onclick="saveOnboarding()">Start tracking 💧</button>
+  </div>
+
+  <div id="screen-today" class="screen active">
+    <div class="header">
+      <div><div class="header-sub" id="today-date"></div><h1>Today</h1></div>
+      <button class="settings-btn" onclick="switchTab('settings')">⚙️</button>
+    </div>
+    <div class="ring-wrap">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(79,195,247,0.1)" stroke-width="14"/>
+        <circle id="ring-prog" cx="100" cy="100" r="85" fill="none" stroke="#4fc3f7" stroke-width="14" stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534" style="transition:stroke-dashoffset 0.8s ease;"/>
+      </svg>
+      <div class="ring-center">
+        <div class="ring-ml" id="ring-ml">0 ml</div>
+        <div class="ring-target" id="ring-target">of 2500 ml</div>
+        <div class="ring-pct" id="ring-pct">0%</div>
+      </div>
+    </div>
+    <div id="alert-bar" class="alert-bar green">Loading...</div>
+    <div class="pace-line" id="pace-line"></div>
+    <div class="log-section">
+      <div class="log-label">Add glasses</div>
+      <div class="icon-row" id="glass-row"></div>
+      <div class="log-label" style="margin-top:14px;">Add bottles</div>
+      <div class="icon-row" id="bottle-row"></div>
+      <div class="actions-row">
+        <button class="undo-btn" onclick="undoLast()">↩ Undo last</button>
+        <div class="custom-row">
+          <input class="custom-input" type="number" id="custom-ml" placeholder="custom ml" min="1" max="2000">
+          <button class="custom-add" onclick="addCustom()">+ Add</button>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">Today's log</div>
+    <div class="log-list" id="log-list"><div class="empty-log">No logs yet — tap a glass or bottle above!</div></div>
+  </div>
+
+  <div id="screen-analysis" class="screen">
+    <div class="header"><h1>Analysis</h1></div>
+    <div class="sub-tabs">
+      <button class="sub-tab active" onclick="showSubTab('daily',this)">Daily</button>
+      <button class="sub-tab" onclick="showSubTab('weekly',this)">Weekly</button>
+      <button class="sub-tab" onclick="showSubTab('monthly',this)">Monthly</button>
+    </div>
+    <div id="sub-daily"></div>
+    <div id="sub-weekly" style="display:none"></div>
+    <div id="sub-monthly" style="display:none"></div>
+  </div>
+
+  <div id="screen-settings" class="screen">
+    <div class="header"><h1>Settings</h1></div>
+    <div class="settings-form">
+      <div class="field"><label>Daily water target (litres)</label><input type="number" id="s-target" step="0.5" min="0.5" max="10"></div>
+      <div class="field"><label>Glass size</label><select id="s-glass"><option value="150">150 ml</option><option value="200">200 ml</option><option value="250">250 ml</option><option value="300">300 ml</option></select></div>
+      <div class="field"><label>Bottle size</label><select id="s-bottle"><option value="500">500 ml</option><option value="750">750 ml</option><option value="1000">1 litre</option><option value="1500">1.5 litres</option></select></div>
+      <div class="two-col">
+        <div class="field"><label>Wake time</label><input type="time" id="s-wake"></div>
+        <div class="field"><label>Sleep time</label><input type="time" id="s-sleep"></div>
+      </div>
+      <button class="save-btn" onclick="saveSettings()">Save settings</button>
+      <button class="danger-btn" onclick="clearToday()">Clear today's logs</button>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-today" onclick="switchTab('today')"><span class="nav-icon">💧</span><span>Today</span></button>
+    <button class="nav-btn" id="nav-analysis" onclick="switchTab('analysis')"><span class="nav-icon">📊</span><span>Analysis</span></button>
+    <button class="nav-btn" id="nav-settings" onclick="switchTab('settings')"><span class="nav-icon">⚙️</span><span>Settings</span></button>
+  </nav>
+</div>
+
+<script>
+let settings = { dailyTarget: 2500, glassSize: 250, bottleSize: 1000, wakeTime: '07:00', sleepTime: '00:00' };
+let todayLogs = [];
+
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0');
+}
+
+function load() {
+  const s = localStorage.getItem('hydra_settings');
+  if(s) { settings = JSON.parse(s); document.getElementById('onboarding').style.display='none'; }
+  const logs = localStorage.getItem('hydra_logs_'+todayKey());
+  if(logs) todayLogs = JSON.parse(logs);
+}
+
+function save() {
+  localStorage.setItem('hydra_settings', JSON.stringify(settings));
+  localStorage.setItem('hydra_logs_'+todayKey(), JSON.stringify(todayLogs));
+}
+
+function saveOnboarding() {
+  const t = parseFloat(document.getElementById('ob-target').value);
+  if(!t||t<=0) { alert('Please enter a valid target.'); return; }
+  settings.dailyTarget = Math.round(t*1000);
+  settings.glassSize = parseInt(document.getElementById('ob-glass').value);
+  settings.bottleSize = parseInt(document.getElementById('ob-bottle').value);
+  settings.wakeTime = document.getElementById('ob-wake').value;
+  settings.sleepTime = document.getElementById('ob-sleep').value;
+  save();
+  document.getElementById('onboarding').style.display='none';
+  render();
+}
+
+function saveSettings() {
+  const t = parseFloat(document.getElementById('s-target').value);
+  if(!t||t<=0) { alert('Please enter a valid target.'); return; }
+  settings.dailyTarget = Math.round(t*1000);
+  settings.glassSize = parseInt(document.getElementById('s-glass').value);
+  settings.bottleSize = parseInt(document.getElementById('s-bottle').value);
+  settings.wakeTime = document.getElementById('s-wake').value;
+  settings.sleepTime = document.getElementById('s-sleep').value;
+  save(); alert('Settings saved!'); render();
+}
+
+function clearToday() {
+  if(confirm('Clear all logs for today?')) { todayLogs=[]; save(); render(); }
+}
+
+function populateSettings() {
+  document.getElementById('s-target').value = (settings.dailyTarget/1000).toFixed(1);
+  document.getElementById('s-glass').value = settings.glassSize;
+  document.getElementById('s-bottle').value = settings.bottleSize;
+  document.getElementById('s-wake').value = settings.wakeTime;
+  document.getElementById('s-sleep').value = settings.sleepTime;
+}
+
+function totalToday() { return todayLogs.reduce((a,l)=>a+l.amount,0); }
+
+function timeToMins(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+
+function calcExpected() {
+  const now = new Date();
+  const nowMins = now.getHours()*60+now.getMinutes();
+  let wakeMins = timeToMins(settings.wakeTime);
+  let sleepMins = timeToMins(settings.sleepTime);
+  if(sleepMins<=wakeMins) sleepMins+=24*60;
+  const totalMins = sleepMins-wakeMins;
+  if(nowMins<wakeMins) return 0;
+  const elapsed = Math.min(nowMins-wakeMins, totalMins);
+  return Math.round((elapsed/totalMins)*settings.dailyTarget);
+}
+
+function etaText() {
+  const total = totalToday();
+  const remaining = settings.dailyTarget-total;
+  if(remaining<=0) return '🎉 Target reached!';
+  const now = new Date();
+  const nowMins = now.getHours()*60+now.getMinutes();
+  if(todayLogs.length===0) return 'Start logging to see your pace';
+  const firstLog = todayLogs[0];
+  const startMins = parseInt(firstLog.time.split(':')[0])*60+parseInt(firstLog.time.split(':')[1]);
+  const elapsedSinceStart = nowMins-startMins;
+  if(elapsedSinceStart<=0) return '';
+  const rate = total/elapsedSinceStart;
+  const minsToFinish = remaining/rate;
+  const etaDate = new Date(now.getTime()+minsToFinish*60000);
+  const h=etaDate.getHours(); const m=etaDate.getMinutes();
+  const ampm=h>=12?'PM':'AM'; const hh=h%12||12;
+  return 'At this pace you\'ll hit '+(settings.dailyTarget/1000).toFixed(1)+'L by '+hh+':'+m.toString().padStart(2,'0')+' '+ampm;
+}
+
+function renderRing() {
+  const total = totalToday();
+  const pct = Math.min(total/settings.dailyTarget,1);
+  const circ = 2*Math.PI*85;
+  document.getElementById('ring-prog').style.strokeDashoffset = circ-pct*circ;
+  document.getElementById('ring-ml').textContent = total>=1000?(total/1000).toFixed(2).replace(/\.?0+$/,'')+'L':total+'ml';
+  document.getElementById('ring-target').textContent = 'of '+(settings.dailyTarget/1000).toFixed(1)+'L';
+  document.getElementById('ring-pct').textContent = Math.round(pct*100)+'%';
+  document.getElementById('pace-line').textContent = etaText();
+  const expected = calcExpected();
+  const gap = expected-total;
+  const gapPct = expected>0?gap/expected:0;
+  const bar = document.getElementById('alert-bar');
+  const now = new Date();
+  const nowStr = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  if(total>=settings.dailyTarget) {
+    bar.className='alert-bar green'; bar.textContent='🎉 You hit your daily target! Great job!';
+  } else if(gapPct<0.1) {
+    bar.className='alert-bar green'; bar.textContent='✅ You\'re on track — keep it up!';
+  } else if(gapPct<0.25) {
+    bar.className='alert-bar yellow'; bar.textContent='⚠️ It\'s '+nowStr+' — you should have had '+expected+'ml. You\'re '+gap+'ml behind. Drink 1–2 glasses to catch up.';
+  } else {
+    bar.className='alert-bar red'; bar.textContent='🚨 It\'s '+nowStr+' — you\'re '+gap+'ml behind your target pace. Drink a bottle now!';
+  }
+}
+
+function renderLogList() {
+  const el = document.getElementById('log-list');
+  if(todayLogs.length===0) { el.innerHTML='<div class="empty-log">No logs yet — tap a glass or bottle above!</div>'; return; }
+  el.innerHTML=[...todayLogs].reverse().map(l=>'<div class="log-item"><div><div class="log-time">'+l.time+'</div><div class="log-type">'+l.type+'</div></div><div class="log-amt">+'+l.amount+'ml</div></div>').join('');
+}
+
+function renderDrinkBtns() {
+  document.getElementById('glass-row').innerHTML='<button class="drink-btn" onclick="logDrink('+settings.glassSize+',\'glass\',this)"><span class="dicon">🥛</span><span class="dml">+'+settings.glassSize+'ml</span><span class="dlabel">glass</span></button><button class="drink-btn" onclick="logDrink('+(settings.glassSize*2)+',\'2 glasses\',this)"><span class="dicon">🥛🥛</span><span class="dml">+'+(settings.glassSize*2)+'ml</span><span class="dlabel">2 glasses</span></button>';
+  document.getElementById('bottle-row').innerHTML='<button class="drink-btn" onclick="logDrink('+settings.bottleSize+',\'bottle\',this)"><span class="dicon">🍶</span><span class="dml">+'+settings.bottleSize+'ml</span><span class="dlabel">bottle</span></button><button class="drink-btn" onclick="logDrink('+Math.round(settings.bottleSize*0.5)+',\'half bottle\',this)"><span class="dicon">🫗</span><span class="dml">+'+Math.round(settings.bottleSize*0.5)+'ml</span><span class="dlabel">half bottle</span></button>';
+}
+
+function logDrink(amount, type, btn) {
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  todayLogs.push({amount,type,time,ts:Date.now()});
+  save(); rippleEffect(btn); floatText(btn,'+'+amount+'ml'); render();
+}
+
+function addCustom() {
+  const v = parseInt(document.getElementById('custom-ml').value);
+  if(!v||v<=0||v>3000) { alert('Enter a value between 1 and 3000 ml'); return; }
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  todayLogs.push({amount:v,type:'custom',time,ts:Date.now()});
+  document.getElementById('custom-ml').value='';
+  save(); render();
+}
+
+function undoLast() { if(todayLogs.length===0) return; todayLogs.pop(); save(); render(); }
+
+function rippleEffect(btn) {
+  const r = document.createElement('div'); r.className='ripple';
+  const size=btn.offsetWidth;
+  r.style.cssText='width:'+size+'px;height:'+size+'px;left:'+(btn.offsetWidth/2-size/2)+'px;top:'+(btn.offsetHeight/2-size/2)+'px;';
+  btn.appendChild(r); setTimeout(()=>r.remove(),600);
+}
+
+function floatText(btn, text) {
+  const rect=btn.getBoundingClientRect();
+  const el=document.createElement('div'); el.className='float-text'; el.textContent=text;
+  el.style.left=(rect.left+rect.width/2-20)+'px'; el.style.top=(rect.top-10)+'px';
+  document.body.appendChild(el); setTimeout(()=>el.remove(),900);
+}
+
+function setTodayDate() {
+  const d=new Date();
+  document.getElementById('today-date').textContent=d.toLocaleDateString('en-IN',{weekday:'long',month:'long',day:'numeric'});
+}
+
+function getAllLogs() {
+  const result={};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('hydra_logs_')){
+      result[k.replace('hydra_logs_','')]=JSON.parse(localStorage.getItem(k));
+    }
+  }
+  return result;
+}
+
+function calcStreak() {
+  const allLogs=getAllLogs(); let streak=0;
+  for(let i=0;;i++){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const key=d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0');
+    const logs=allLogs[key]||[];
+    const total=logs.reduce((a,l)=>a+l.amount,0);
+    if(total>=settings.dailyTarget) streak++; else break;
+  }
+  return streak;
+}
+
+function renderSuggestions(streak,pct) {
+  const tips=[];
+  if(streak>=3) tips.push({icon:'🔥',text:'You\'re on a '+streak+'-day streak! Consistency is your superpower.'});
+  if(pct>=100) tips.push({icon:'🎉',text:'You hit your target today. Your skin, kidneys, and brain all thank you.'});
+  else if(pct>=80) tips.push({icon:'💪',text:'You\'re at '+pct+'% of your target. Almost there — push through!'});
+  else if(pct<50) tips.push({icon:'💡',text:'Try keeping a bottle at your desk. Most people forget to drink when busy — having it visible helps.'});
+  if(tips.length===0) tips.push({icon:'💧',text:'Every sip counts. Small consistent habits beat occasional large amounts.'});
+  return tips.slice(0,2).map(t=>'<div class="suggest-card"><div class="suggest-icon">'+t.icon+'</div>'+t.text+'</div>').join('');
+}
+
+function renderDailyAnalysis() {
+  const slots=[];
+  for(let h=0;h<24;h+=2){
+    const label=h===0?'12am':h<12?h+'am':h===12?'12pm':(h-12)+'pm';
+    const wakeH=parseInt(settings.wakeTime.split(':')[0]);
+    const sleepH=parseInt(settings.sleepTime.split(':')[0]);
+    const inRange=sleepH===0||(h>=wakeH&&h<sleepH);
+    if(h>=wakeH&&inRange){
+      const amt=todayLogs.filter(l=>{const lh=parseInt(l.time.split(':')[0]);return lh>=h&&lh<h+2;}).reduce((a,l)=>a+l.amount,0);
+      slots.push({label,amt});
+    }
+  }
+  const max=Math.max(...slots.map(s=>s.amt),1);
+  const activeHours=(()=>{let w=timeToMins(settings.wakeTime),s=timeToMins(settings.sleepTime);if(s<=w)s+=24*60;return(s-w)/60;})();
+  const idealPer2h=(settings.dailyTarget/activeHours)*2;
+  const total=totalToday(); const pct=Math.round(total/settings.dailyTarget*100);
+  document.getElementById('sub-daily').innerHTML='<div class="chart-card"><div class="chart-title">Intake by time (ml)</div><div class="bar-wrap">'+slots.map(s=>{const w=Math.round(s.amt/max*100);const idealW=Math.round(Math.min(idealPer2h,max)/max*100);const col=s.amt>=idealPer2h?'#4fc3f7':s.amt>=idealPer2h*0.7?'#f5c842':'#e05c5c';return'<div class="bar-row"><div class="bar-lbl">'+s.label+'</div><div class="bar-track"><div class="bar-fill" style="width:'+w+'%;background:'+col+';"><span class="bar-val">'+(s.amt>0?s.amt:'')+'</span></div><div class="bar-ideal" style="left:'+idealW+'%"></div></div></div>';}).join('')+'</div><div style="font-size:11px;color:var(--text-muted);margin-top:10px;">│ white line = ideal pace per 2h</div></div><div class="stat-row"><div class="stat-card"><div class="stat-val">'+(total>=1000?(total/1000).toFixed(1)+'L':total+'ml')+'</div><div class="stat-lbl">Today total</div></div><div class="stat-card"><div class="stat-val">'+pct+'%</div><div class="stat-lbl">Of target</div></div></div>'+renderSuggestions(calcStreak(),pct);
+}
+
+function renderWeeklyAnalysis() {
+  const allLogs=getAllLogs(); const days=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const key=d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0');
+    const logs=allLogs[key]||[]; const total=logs.reduce((a,l)=>a+l.amount,0);
+    days.push({label:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()],total,hit:total>=settings.dailyTarget});
+  }
+  const max=Math.max(...days.map(d=>d.total),1);
+  const avg=Math.round(days.reduce((a,d)=>a+d.total,0)/7);
+  const hitDays=days.filter(d=>d.hit).length; const streak=calcStreak();
+  document.getElementById('sub-weekly').innerHTML='<div class="chart-card"><div class="chart-title">Last 7 days (ml)</div><div class="bar-wrap">'+days.map(d=>{const w=Math.round(d.total/max*100);const col=d.hit?'#4fc3f7':d.total>0?'#7a9ab5':'rgba(122,154,181,0.2)';return'<div class="bar-row"><div class="bar-lbl">'+d.label+'</div><div class="bar-track"><div class="bar-fill" style="width:'+w+'%;background:'+col+';"><span class="bar-val">'+(d.total>0?(d.total>=1000?(d.total/1000).toFixed(1)+'L':d.total):'')+'</span></div></div></div>';}).join('')+'</div></div><div class="stat-row"><div class="stat-card"><div class="stat-val">'+(avg>=1000?(avg/1000).toFixed(1)+'L':avg+'ml')+'</div><div class="stat-lbl">Daily avg</div></div><div class="stat-card"><div class="stat-val">'+hitDays+'/7</div><div class="stat-lbl">Days on target</div></div></div><div class="stat-row"><div class="stat-card"><div class="stat-val">🔥 '+streak+'</div><div class="stat-lbl">Day streak</div></div><div class="stat-card"><div class="stat-val">'+Math.round(avg/settings.dailyTarget*100)+'%</div><div class="stat-lbl">Weekly avg %</div></div></div>'+renderSuggestions(streak,Math.round(avg/settings.dailyTarget*100));
+}
+
+function renderMonthlyAnalysis() {
+  const allLogs=getAllLogs(); const now=new Date();
+  const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const cells=[]; let monthTotal=0,hitDays=0,bestDay=0,bestAmt=0;
+  for(let d=1;d<=daysInMonth;d++){
+    const key=now.getFullYear()+'-'+(now.getMonth()+1).toString().padStart(2,'0')+'-'+d.toString().padStart(2,'0');
+    const logs=allLogs[key]||[]; const total=logs.reduce((a,l)=>a+l.amount,0);
+    monthTotal+=total; if(total>=settings.dailyTarget)hitDays++;
+    if(total>bestAmt){bestAmt=total;bestDay=d;}
+    cells.push({d,total,hit:total>=settings.dailyTarget});
+  }
+  const avg=Math.round(monthTotal/now.getDate());
+  const maxCell=Math.max(...cells.map(c=>c.total),1);
+  document.getElementById('sub-monthly').innerHTML='<div class="chart-card"><div class="chart-title">This month — heatmap</div><div class="heatmap">'+cells.map(c=>{const intensity=c.total/maxCell;const col=c.total===0?'rgba(79,195,247,0.05)':'rgba(79,195,247,'+(0.1+intensity*0.9).toFixed(2)+')';return'<div class="heatmap-cell" style="background:'+col+';" title="Day '+c.d+': '+c.total+'ml"></div>';}).join('')+'</div><div style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:11px;color:var(--text-muted);"><div style="width:10px;height:10px;border-radius:2px;background:rgba(79,195,247,0.05);"></div>0<div style="width:10px;height:10px;border-radius:2px;background:rgba(79,195,247,0.5);"></div>mid<div style="width:10px;height:10px;border-radius:2px;background:rgba(79,195,247,1);"></div>max</div></div><div class="stat-row"><div class="stat-card"><div class="stat-val">'+(avg>=1000?(avg/1000).toFixed(1)+'L':avg+'ml')+'</div><div class="stat-lbl">Monthly avg</div></div><div class="stat-card"><div class="stat-val">'+hitDays+'/'+now.getDate()+'</div><div class="stat-lbl">Days on target</div></div></div><div class="stat-row"><div class="stat-card"><div class="stat-val">Day '+(bestDay||'—')+'</div><div class="stat-lbl">Best day</div></div><div class="stat-card"><div class="stat-val">'+(bestAmt>=1000?(bestAmt/1000).toFixed(1)+'L':bestAmt+'ml')+'</div><div class="stat-lbl">Best amount</div></div></div>'+renderSuggestions(calcStreak(),Math.round(avg/settings.dailyTarget*100));
+}
+
+function showSubTab(tab, btn) {
+  document.querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sub-daily').style.display=tab==='daily'?'block':'none';
+  document.getElementById('sub-weekly').style.display=tab==='weekly'?'block':'none';
+  document.getElementById('sub-monthly').style.display=tab==='monthly'?'block':'none';
+  if(tab==='weekly') renderWeeklyAnalysis();
+  if(tab==='monthly') renderMonthlyAnalysis();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+tab).classList.add('active');
+  const nb=document.getElementById('nav-'+tab);
+  if(nb) nb.classList.add('active');
+  if(tab==='analysis') renderDailyAnalysis();
+  if(tab==='settings') populateSettings();
+}
+
+function render() { setTodayDate(); renderRing(); renderDrinkBtns(); renderLogList(); }
+
+load(); render();
+setInterval(renderRing, 60000);
+</script>
+</body>
+</html>
